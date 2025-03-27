@@ -127,12 +127,18 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="ErrorLogger.cpp" />
+    <ClCompile Include="Exception.cpp" />
     <ClCompile Include="Screenshot.cpp" />
     <ClCompile Include="ScreenShotOptions.cpp" />
+    <ClCompile Include="StringConverter.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="ErrorLogger.h" />
+    <ClInclude Include="Exception.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="ScreenShotOptions.h" />
+    <ClInclude Include="StringConverter.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Resource.rc" />
