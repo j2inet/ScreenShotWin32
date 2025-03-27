@@ -4,7 +4,7 @@
 
 
 #define IDS_HELPSTRING					501
-#define IDS_LOGOSTRNIG					502
+#define IDS_LOGOSTRING					502
 
 // Next default values for new objects
 // 

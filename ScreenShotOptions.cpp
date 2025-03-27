@@ -24,6 +24,10 @@ ScreenShotOptions ProcessOptions(std::vector<std::wstring> args)
 			{
 				options.Key = current.substr(6);
 			}
+			else if (current.size() > 11 && current.substr(0, 10) == L"--filename:")
+			{
+				options.DestinationFile = current.substr(11);
+			}
 			else
 			{
 				options.HasUnrecognizedOption = true;

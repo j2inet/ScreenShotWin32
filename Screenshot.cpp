@@ -3,12 +3,14 @@
 #include <string>  
 #include <sstream>
 #include <stdlib.h>
-
-
+#include <fcntl.h>
+#include <io.h>
+#include <stdio.h>
 #include <wrl/client.h>
 #include <wincodec.h>
 #include <wincodecsdk.h>
 #include <Windows.h>
+#include <cstring>
 #include "ScreenShotOptions.h"
 
 
@@ -27,7 +29,6 @@ std::vector<std::wstring> packageArgs(int argc, wchar_t** argv)
 }
 void SavePng(std::wstring fileName, int width, int height, std::vector<unsigned char>& image)
 {
-
     ComPtr<IWICImagingFactory> pFactory = NULL;
     ComPtr<IWICBitmapEncoder> piEncoder = NULL;
     ComPtr<IWICBitmapFrameEncode> piBitmapFrame = NULL;
@@ -41,7 +42,7 @@ void SavePng(std::wstring fileName, int width, int height, std::vector<unsigned 
         IID_PPV_ARGS(&pFactory)
     );
 
-    hr = pFactory->CreateStream(&piStream);
+    hr = pFactory->CreateStream(&piStream);    
     hr = piStream->InitializeFromFilename(fileName.c_str(), GENERIC_WRITE);
     hr = pFactory->CreateEncoder(GUID_ContainerFormatPng, NULL, &piEncoder);
     hr = piEncoder->Initialize(piStream.Get(), WICBitmapEncoderNoCache);
@@ -58,24 +59,177 @@ void SavePng(std::wstring fileName, int width, int height, std::vector<unsigned 
     hr = IsEqualGUID(formatGUID, GUID_WICPixelFormat32bppBGRA) ? S_OK : E_FAIL;
 
     UINT cbStride = (width * 32 + 7) / 8/***WICGetStride***/;
-    UINT cbBufferSize = height * cbStride;
+    //UINT cbBufferSize = height * cbStride;
 
     hr = piBitmapFrame->WritePixels(height, cbStride, static_cast<DWORD>(image.size()), image.data());
     hr = piBitmapFrame->Commit();
     hr = piEncoder->Commit();
+}
 
+void RedirectIOToConsole() {
+    //from https://stackoverflow.com/questions/191842/how-do-i-get-console-output-in-c-with-a-windows-program
+    //Create a console for this application
+    AllocConsole();
+
+    // Get STDOUT handle
+    HANDLE ConsoleOutput = GetStdHandle(STD_OUTPUT_HANDLE);
+    int SystemOutput = _open_osfhandle(intptr_t(ConsoleOutput), _O_TEXT);
+    FILE* COutputHandle = _fdopen(SystemOutput, "w");
+
+    // Get STDERR handle
+    HANDLE ConsoleError = GetStdHandle(STD_ERROR_HANDLE);
+    int SystemError = _open_osfhandle(intptr_t(ConsoleError), _O_TEXT);
+    FILE* CErrorHandle = _fdopen(SystemError, "w");
+
+    // Get STDIN handle
+    HANDLE ConsoleInput = GetStdHandle(STD_INPUT_HANDLE);
+    int SystemInput = _open_osfhandle(intptr_t(ConsoleInput), _O_TEXT);
+    FILE* CInputHandle = _fdopen(SystemInput, "r");
+
+    //make cout, wcout, cin, wcin, wcerr, cerr, wclog and clog point to console as well
+    ios::sync_with_stdio(true);
+
+    // Redirect the CRT standard input, output, and error handles to the console
+    freopen_s(&CInputHandle, "CONIN$", "r", stdin);
+    freopen_s(&COutputHandle, "CONOUT$", "w", stdout);
+    freopen_s(&CErrorHandle, "CONOUT$", "w", stderr);
+
+    //Clear the error state for each of the C++ standard stream objects. We need to do this, as
+    //attempts to access the standard streams before they refer to a valid target will cause the
+    //iostream objects to enter an error state. In versions of Visual Studio after 2005, this seems
+    //to always occur during startup regardless of whether anything has been read from or written to
+    //the console or not.
+    std::wcout.clear();
+    std::cout.clear();
+    std::wcerr.clear();
+    std::cerr.clear();
+    std::wcin.clear();
+    std::cin.clear();
+}
+
+std::vector<BYTE> GetResourceBytes(int id)
+{
+    
+    HMODULE hModule = nullptr;// ::GetModuleHandle(NULL);
+    HRSRC hResource = FindResourceW(hModule, MAKEINTRESOURCE(id), RT_RCDATA);
+    auto err = GetLastError();
+    HGLOBAL hResourceBytes = LoadResource(hModule, hResource);
+    auto size = SizeofResource(hModule, hResource);
+    std::vector<unsigned char> retVal(size);
+    LPVOID resourceData = LockResource(hResource);
+    std::memcpy(retVal.data(), resourceData, retVal.size());
+    
+    UnlockResource(hResource);
+    return retVal;
+}
+
+std::vector<WORD> GetResourceWords(int id)
+{
+    std::vector<WORD> retVal;
+    auto source = GetResourceBytes(id);
+    for (int i = 0; i < source.size(); i += 2)
+    {
+        retVal.push_back(source[i] | (source[i + 1] << 8));
+    }
+    return retVal;
+}
+
+std::string GetResourceLongDocument(int id)
+{
+    auto bytes = GetResourceBytes(id);
+    auto retVal = std::string(bytes.begin(), bytes.end());
+    return retVal;
 }
 
 void ShowHelp()
 {
-    HMODULE hModule = nullptr;// ::GetModuleHandle(NULL);
-    HRSRC hResource = FindResourceW(hModule, MAKEINTRESOURCE(IDS_HELPSTRING), RT_RCDATA);
-    auto err = GetLastError();
-    HGLOBAL hgString = LoadResource(hModule, hResource);
-    LPCWSTR helpCString = (LPCWSTR)LockResource(hgString);
-    std::wstring helpString = std::wstring((LPWSTR)helpCString);
-    UnlockResource(hgString);
-    std::wcout << helpCString;
+    auto helpString = GetResourceLongDocument(IDS_HELPSTRING);
+    auto ansiString = GetResourceLongDocument(IDS_LOGOSTRING);
+    std::vector<WCHAR> windowTitle(1024);
+    if (!GetConsoleTitle(windowTitle.data(), windowTitle.size()) && GetLastError() == ERROR_SUCCESS) {
+        //launched in the console.
+        std::cout << "In console";
+        std::cout << ansiString << L"\r\n\r\n" << helpString << L"\r\n\r\n";
+    }
+    else
+    {
+        FreeConsole();
+        if (AllocConsole())
+        {
+            HANDLE hConsole = GetConsoleWindow();
+            DWORD dConsoleMode;
+
+            
+            auto hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+            auto hIn = GetStdHandle(STD_INPUT_HANDLE);
+            auto hRealOut = CreateFile(L"CONOUT$", GENERIC_READ | GENERIC_WRITE, FILE_SHARE_WRITE,0, CREATE_NEW, 0, 0);
+            auto hRealIn = CreateFile(L"CONIN$", GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ, 0, CREATE_NEW, 0, 0);
+            if (hRealOut != hOut)
+            {
+                SetStdHandle(STD_OUTPUT_HANDLE, hRealOut);
+                //Console.SetOut(new StreamWriter(Console.OpenStandardOutput(), Console.OutputEncoding){ AutoFlush = true });
+            }
+            if (hRealIn != hIn)
+            {
+                SetStdHandle(STD_INPUT_HANDLE, hRealIn);
+            }
+
+            if (GetConsoleMode(hOut, &dConsoleMode))
+            {
+                dConsoleMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+                SetConsoleMode(hOut, dConsoleMode);
+            }
+
+            
+
+            
+
+
+            CONSOLE_SCREEN_BUFFER_INFO consoleInfo;
+            int consoleHandleR, consoleHandleW;            
+            FILE* fptr;
+
+            HANDLE stdioHandle = GetStdHandle(STD_OUTPUT_HANDLE);
+            COORD Pos = { 0 };
+            SetConsoleCursorPosition(stdioHandle, Pos);
+            printf("Hello");
+            
+            
+            fprintf(stdout, ansiString.c_str());
+            DWORD bytesWritten;
+            WriteFile(hRealOut, ansiString.c_str(), ansiString.size(), &bytesWritten, FALSE);
+            Sleep(15000);
+/*
+            SetConsoleTitle(L"Screen Shot");
+            GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &consoleInfo);
+            stdioHandle = (long)GetStdHandle(STD_INPUT_HANDLE);
+            consoleHandleR = _open_osfhandle(stdioHandle, _O_TEXT);
+            fptr = _fdopen(consoleHandleR, "r");
+            *stdin = *fptr;
+            setvbuf(stdin, NULL, _IONBF, 0);
+        
+
+            stdioHandle = (long)GetStdHandle(STD_OUTPUT_HANDLE);
+            consoleHandleW = _open_osfhandle(stdioHandle, _O_TEXT);
+            fptr = _fdopen(consoleHandleW, "w");
+            *stdout = *fptr;
+            setvbuf(stdout, NULL, _IONBF, 0);
+
+            stdioHandle = (long)GetStdHandle(STD_ERROR_HANDLE);
+            *stderr = *fptr;
+            setvbuf(stderr, NULL, _IONBF, 0);
+            printf("Hello");
+            fwprintf(stdout, ansiString.c_str());
+            */
+        }
+
+
+    }
+    
+
+
+
+    
 }
 
 void SaveBitmap(std::wstring fileName, int width, int height, std::vector<BYTE>& image)
