@@ -137,6 +137,7 @@
     <ClInclude Include="ErrorLogger.h" />
     <ClInclude Include="Exception.h" />
     <ClInclude Include="resource.h" />
+    <ClInclude Include="ScreenShot.h" />
     <ClInclude Include="ScreenShotOptions.h" />
     <ClInclude Include="StringConverter.h" />
   </ItemGroup>

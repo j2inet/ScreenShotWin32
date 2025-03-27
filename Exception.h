@@ -1,6 +1,9 @@
 #pragma once
 #include <stdint.h>
 #include <Windows.h>
+#include <stdexcept>
+#include <string>
+#include <crtdefs.h.>
 #include "ErrorLogger.h"
 
 

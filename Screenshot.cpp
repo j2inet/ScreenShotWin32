@@ -11,8 +11,7 @@
 #include <wincodecsdk.h>
 #include <Windows.h>
 #include <cstring>
-#include "ScreenShotOptions.h"
-
+#include "ScreenShot.h"
 
 using namespace Microsoft::WRL;
 using namespace std;
@@ -42,12 +41,12 @@ void SavePng(std::wstring fileName, int width, int height, std::vector<unsigned 
         IID_PPV_ARGS(&pFactory)
     );
 
-    hr = pFactory->CreateStream(&piStream);    
-    hr = piStream->InitializeFromFilename(fileName.c_str(), GENERIC_WRITE);
-    hr = pFactory->CreateEncoder(GUID_ContainerFormatPng, NULL, &piEncoder);
-    hr = piEncoder->Initialize(piStream.Get(), WICBitmapEncoderNoCache);
+    TOF(hr = pFactory->CreateStream(&piStream));    
+    TOF(hr = piStream->InitializeFromFilename(fileName.c_str(), GENERIC_WRITE));
+    TOF(hr = pFactory->CreateEncoder(GUID_ContainerFormatPng, NULL, &piEncoder));
+    TOF(hr = piEncoder->Initialize(piStream.Get(), WICBitmapEncoderNoCache));
 
-    hr = piEncoder->CreateNewFrame(&piBitmapFrame, &pPropertybag);
+    TOF(hr = piEncoder->CreateNewFrame(&piBitmapFrame, &pPropertybag));
     if (SUCCEEDED(hr))
     {
         //encoder options should be set here. 
@@ -55,15 +54,22 @@ void SavePng(std::wstring fileName, int width, int height, std::vector<unsigned 
     }
     piBitmapFrame->SetSize(width, height);
     WICPixelFormatGUID formatGUID = GUID_WICPixelFormat32bppBGRA;
-    hr = piBitmapFrame->SetPixelFormat(&formatGUID);
+    TOF(hr = piBitmapFrame->SetPixelFormat(&formatGUID));
     hr = IsEqualGUID(formatGUID, GUID_WICPixelFormat32bppBGRA) ? S_OK : E_FAIL;
+    if (hr == E_FAIL)
+    {
+        //Well, this is emberassing. We are not prepared to handle the 
+        //case of getting back a pixel format that we didn't expect. 
+        //There's no recovering from this. Let's just exit. 
+        throw ArgumentOutOfRangeException(__FILEW__, __LINE__, L"Unexpected pixel format returned");
+    }
 
     UINT cbStride = (width * 32 + 7) / 8/***WICGetStride***/;
     //UINT cbBufferSize = height * cbStride;
 
-    hr = piBitmapFrame->WritePixels(height, cbStride, static_cast<DWORD>(image.size()), image.data());
-    hr = piBitmapFrame->Commit();
-    hr = piEncoder->Commit();
+    TOF(hr = piBitmapFrame->WritePixels(height, cbStride, static_cast<DWORD>(image.size()), image.data()));
+    TOF(hr = piBitmapFrame->Commit());
+    TOF(hr = piEncoder->Commit());
 }
 
 void RedirectIOToConsole() {
