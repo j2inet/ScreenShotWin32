@@ -1,4 +1,5 @@
 #include <iostream>
+#include <fstream>
 #include <vector>
 #include <string>  
 #include <sstream>
@@ -179,22 +180,14 @@ void ShowHelp()
             {
                 SetStdHandle(STD_INPUT_HANDLE, hRealIn);
             }
-
             if (GetConsoleMode(hOut, &dConsoleMode))
             {
                 dConsoleMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
                 SetConsoleMode(hOut, dConsoleMode);
             }
-
-            
-
-            
-
-
             CONSOLE_SCREEN_BUFFER_INFO consoleInfo;
             int consoleHandleR, consoleHandleW;            
             FILE* fptr;
-
             HANDLE stdioHandle = GetStdHandle(STD_OUTPUT_HANDLE);
             COORD Pos = { 0 };
             SetConsoleCursorPosition(stdioHandle, Pos);
@@ -322,6 +315,7 @@ void CaptureScreen(std::wstring fileName)
 int WinMain(HINSTANCE  hInstance, HINSTANCE  hPrevInstance, LPSTR args, int nCmdShow)
 {
     HRESULT hr = CoInitialize(NULL);
+
     int cmdCount;
     //auto wargs = reinterpret_cast<LPWSTR>(&args);
     auto argv = CommandLineToArgvW(GetCommandLine(), &cmdCount);
@@ -335,9 +329,18 @@ int WinMain(HINSTANCE  hInstance, HINSTANCE  hPrevInstance, LPSTR args, int nCmd
     if (options.ShowHelp)
     {
         ShowHelp();
+    }
+    else
+    {
+        try {
+            CaptureScreen(options.DestinationFile);
+        }
+        catch (COMException exc)
+        {
+            exc.WriteToLog();
+        }
+
+        CoUninitialize();
         return 0;
     }
-
-    CaptureScreen(options.DestinationFile);    
-    return 0;
 }

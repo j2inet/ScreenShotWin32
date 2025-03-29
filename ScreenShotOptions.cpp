@@ -8,7 +8,7 @@
 
 ScreenShotOptions ProcessOptions(std::vector<std::wstring> args)
 {
-	ScreenShotOptions options{ false,false, L"screenshot.bmp" };
+	ScreenShotOptions options{ false,false, L"screenshot" };
 	for (auto current : args)
 	{
 		if (current.find(L"--") == 0)

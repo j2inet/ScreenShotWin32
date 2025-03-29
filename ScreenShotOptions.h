@@ -9,6 +9,7 @@ struct ScreenShotOptions
 {
 	bool ShowHelp;
 	bool HasUnrecognizedOption;
+
 	std::wstring DestinationFile;
 	std::wstring Bucket;
 	std::wstring Key;
