@@ -12,7 +12,7 @@
 #include <wincodecsdk.h>
 #include <Windows.h>
 #include <cstring>
-#include "ScreenShot.h"
+#include "main.h"
 
 using namespace Microsoft::WRL;
 using namespace std;
@@ -217,7 +217,7 @@ void ShowHelp()
             WriteConsole(hOut, L" \r\n\r\n", 2, &bytesWritten, NULL);
             WriteConsole(hOut, ansiString.c_str(), ansiString.size(), &bytesWritten, NULL);
             //WriteFile(hOut, ansiString.c_str(), ansiString.size(), &bytesWritten, FALSE);
-            Sleep(15000);
+            Sleep(2000);
         }
     }
 }

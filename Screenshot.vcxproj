@@ -118,9 +118,10 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <Link>
-      <SubSystem>Console</SubSystem>
+      <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -129,7 +130,7 @@
   <ItemGroup>
     <ClCompile Include="ErrorLogger.cpp" />
     <ClCompile Include="Exception.cpp" />
-    <ClCompile Include="Screenshot.cpp" />
+    <ClCompile Include="main.cpp" />
     <ClCompile Include="ScreenShotOptions.cpp" />
     <ClCompile Include="StringConverter.cpp" />
   </ItemGroup>
@@ -137,7 +138,7 @@
     <ClInclude Include="ErrorLogger.h" />
     <ClInclude Include="Exception.h" />
     <ClInclude Include="resource.h" />
-    <ClInclude Include="ScreenShot.h" />
+    <ClInclude Include="main.h" />
     <ClInclude Include="ScreenShotOptions.h" />
     <ClInclude Include="StringConverter.h" />
   </ItemGroup>
