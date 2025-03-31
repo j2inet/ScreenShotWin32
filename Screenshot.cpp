@@ -27,6 +27,7 @@ std::vector<std::wstring> packageArgs(int argc, wchar_t** argv)
     }
     return argVector;
 }
+
 void SavePng(std::wstring fileName, int width, int height, std::vector<unsigned char>& image)
 {
     ComPtr<IWICImagingFactory> pFactory = NULL;
@@ -130,33 +131,52 @@ std::vector<BYTE> GetResourceBytes(int id)
     return retVal;
 }
 
+const wchar_t BOM = 0xFEFF;
+
 std::vector<WORD> GetResourceWords(int id)
 {
+    HMODULE hModule = nullptr;// ::GetModuleHandle(NULL);
     std::vector<WORD> retVal;
-    auto source = GetResourceBytes(id);
-    for (int i = 0; i < source.size(); i += 2)
+    HRSRC hResource = FindResourceW(hModule, MAKEINTRESOURCE(id), RT_RCDATA);
+    if (hResource)
     {
-        retVal.push_back(source[i] | (source[i + 1] << 8));
+        auto err = GetLastError();
+        HGLOBAL hResourceBytes = LoadResource(hModule, hResource);
+        if (hResourceBytes != NULL)
+        {
+            auto size = SizeofResource(hModule, hResource);
+            retVal.resize((size + 1) / 2);
+            LPVOID resourceData = LockResource(hResource);
+            WORD* data = new WORD[size];
+            memcpy(data, resourceData, size);
+
+            std::memcpy(retVal.data(), resourceData, size);
+            if ((!retVal.empty()) && retVal[0] == BOM)
+            {
+                retVal.erase(retVal.begin());
+            }
+            UnlockResource(hResource);
+        }
     }
     return retVal;
 }
 
-std::string GetResourceLongDocument(int id)
+std::wstring GetResourceDocumentW(int id)
 {
-    auto bytes = GetResourceBytes(id);
-    auto retVal = std::string(bytes.begin(), bytes.end());
+    std::vector<WORD> wordList = GetResourceWords(id);
+    auto retVal = std::wstring(wordList.begin(), wordList.end());
     return retVal;
 }
 
 void ShowHelp()
 {
-    auto helpString = GetResourceLongDocument(IDS_HELPSTRING);
-    auto ansiString = GetResourceLongDocument(IDS_LOGOSTRING);
+    auto helpString = GetResourceDocumentW(IDS_HELPSTRING);
+    auto ansiString = GetResourceDocumentW(IDS_LOGOSTRING);
     std::vector<WCHAR> windowTitle(1024);
-    if (!GetConsoleTitle(windowTitle.data(), windowTitle.size()) && GetLastError() == ERROR_SUCCESS) {
+    if (!GetConsoleTitle(windowTitle.data(), static_cast<WORD>(windowTitle.size())) && GetLastError() == ERROR_SUCCESS) {
         //launched in the console.
-        std::cout << "In console";
-        std::cout << ansiString << L"\r\n\r\n" << helpString << L"\r\n\r\n";
+        std::wcout << "In console";
+        std::wcout << ansiString << L"\r\n\r\n" << helpString << L"\r\n\r\n";
     }
     else
     {
@@ -169,66 +189,37 @@ void ShowHelp()
             
             auto hOut = GetStdHandle(STD_OUTPUT_HANDLE);
             auto hIn = GetStdHandle(STD_INPUT_HANDLE);
+/*
             auto hRealOut = CreateFile(L"CONOUT$", GENERIC_READ | GENERIC_WRITE, FILE_SHARE_WRITE,0, CREATE_NEW, 0, 0);
             auto hRealIn = CreateFile(L"CONIN$", GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ, 0, CREATE_NEW, 0, 0);
+
             if (hRealOut != hOut)
             {
                 SetStdHandle(STD_OUTPUT_HANDLE, hRealOut);
-                //Console.SetOut(new StreamWriter(Console.OpenStandardOutput(), Console.OutputEncoding){ AutoFlush = true });
+                hOut = hRealOut;
             }
             if (hRealIn != hIn)
             {
                 SetStdHandle(STD_INPUT_HANDLE, hRealIn);
+                hIn = hRealIn;
             }
+        */
+
             if (GetConsoleMode(hOut, &dConsoleMode))
             {
-                dConsoleMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+                dConsoleMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING| DISABLE_NEWLINE_AUTO_RETURN;
                 SetConsoleMode(hOut, dConsoleMode);
             }
-            CONSOLE_SCREEN_BUFFER_INFO consoleInfo;
-            int consoleHandleR, consoleHandleW;            
-            FILE* fptr;
-            HANDLE stdioHandle = GetStdHandle(STD_OUTPUT_HANDLE);
-            COORD Pos = { 0 };
-            SetConsoleCursorPosition(stdioHandle, Pos);
-            printf("Hello");
-            
-            
-            fprintf(stdout, ansiString.c_str());
+         
             DWORD bytesWritten;
-            WriteFile(hRealOut, ansiString.c_str(), ansiString.size(), &bytesWritten, FALSE);
+
+            WriteConsole(hOut, helpString.c_str(), helpString.size(), &bytesWritten, NULL);
+            WriteConsole(hOut, L" \r\n\r\n", 2, &bytesWritten, NULL);
+            WriteConsole(hOut, ansiString.c_str(), ansiString.size(), &bytesWritten, NULL);
+            //WriteFile(hOut, ansiString.c_str(), ansiString.size(), &bytesWritten, FALSE);
             Sleep(15000);
-/*
-            SetConsoleTitle(L"Screen Shot");
-            GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &consoleInfo);
-            stdioHandle = (long)GetStdHandle(STD_INPUT_HANDLE);
-            consoleHandleR = _open_osfhandle(stdioHandle, _O_TEXT);
-            fptr = _fdopen(consoleHandleR, "r");
-            *stdin = *fptr;
-            setvbuf(stdin, NULL, _IONBF, 0);
-        
-
-            stdioHandle = (long)GetStdHandle(STD_OUTPUT_HANDLE);
-            consoleHandleW = _open_osfhandle(stdioHandle, _O_TEXT);
-            fptr = _fdopen(consoleHandleW, "w");
-            *stdout = *fptr;
-            setvbuf(stdout, NULL, _IONBF, 0);
-
-            stdioHandle = (long)GetStdHandle(STD_ERROR_HANDLE);
-            *stderr = *fptr;
-            setvbuf(stderr, NULL, _IONBF, 0);
-            printf("Hello");
-            fwprintf(stdout, ansiString.c_str());
-            */
         }
-
-
     }
-    
-
-
-
-    
 }
 
 void SaveBitmap(std::wstring fileName, int width, int height, std::vector<BYTE>& image)
